@@ -1,17 +1,45 @@
+import sys
+import os
 import streamlit as st
 from typing import Dict
 import json
 from collections import Counter
 import re
+import requests
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
-from backend.chat import BedrockChat
+class OllamaChat:
+    def __init__(self, model_id: str = "llama2", base_url: str = "http://localhost:11434"):
+        """Initialize Ollama chat client"""
+        self.base_url = base_url
+        self.model_id = model_id
+        self.api_endpoint = f"{self.base_url}/api/chat"
+
+    def generate_response(self, message: str) -> str:
+        """Generate a response using Ollama"""
+        try:
+            payload = {
+                "model": self.model_id,
+                "messages": [{"role": "user", "content": message}],
+                "temperature": 0.7
+            }
+
+            response = requests.post(self.api_endpoint, json=payload)
+            response.raise_for_status()
+            
+            data = response.json()
+            return data['message']['content']
+            
+        except Exception as e:
+            st.error(f"Error generating response: {str(e)}")
+            return None
 
 
 # Page config
 st.set_page_config(
-    page_title="Japanese Learning Assistant",
-    page_icon="🎌",
+    page_title="Bengali Learning Assistant",
+    page_icon="✒️",
     layout="wide"
 )
 
@@ -23,15 +51,15 @@ if 'messages' not in st.session_state:
 
 def render_header():
     """Render the header section"""
-    st.title("🎌 Japanese Learning Assistant")
+    st.title("✒️ Bengali Learning Assistant")
     st.markdown("""
-    Transform YouTube transcripts into interactive Japanese learning experiences.
+    Transform YouTube transcripts into interactive Bengali(IN) learning experiences.
     
     This tool demonstrates:
-    - Base LLM Capabilities
+    - Base LLM Capabilities using Ollama
     - RAG (Retrieval Augmented Generation)
-    - Amazon Bedrock Integration
     - Agent-based Learning Systems
+    - Interactive Language Learning
     """)
 
 def render_sidebar():
@@ -39,11 +67,10 @@ def render_sidebar():
     with st.sidebar:
         st.header("Development Stages")
         
-        # Main component selection
         selected_stage = st.radio(
             "Select Stage:",
             [
-                "1. Chat with Nova",
+                "1. Chat with Ollama",
                 "2. Raw Transcript",
                 "3. Structured Data",
                 "4. RAG Implementation",
@@ -51,11 +78,10 @@ def render_sidebar():
             ]
         )
         
-        # Stage descriptions
         stage_info = {
-            "1. Chat with Nova": """
+            "1. Chat with Ollama": """
             **Current Focus:**
-            - Basic Japanese learning
+            - Basic Bengali learning
             - Understanding LLM capabilities
             - Identifying limitations
             """,
@@ -76,7 +102,7 @@ def render_sidebar():
             
             "4. RAG Implementation": """
             **Current Focus:**
-            - Bedrock embeddings
+            - Text embeddings
             - Vector storage
             - Context retrieval
             """,
@@ -96,21 +122,17 @@ def render_sidebar():
 
 def render_chat_stage():
     """Render an improved chat interface"""
-    st.header("Chat with Nova")
+    st.header("Chat with Ollama")
 
-    # Initialize BedrockChat instance if not in session state
-    if 'bedrock_chat' not in st.session_state:
-        st.session_state.bedrock_chat = BedrockChat()
+    # Initialize OllamaChat instance if not in session state
+    if 'ollama_chat' not in st.session_state:
+        st.session_state.ollama_chat = OllamaChat()
 
     # Introduction text
     st.markdown("""
-    Start by exploring Nova's base Japanese language capabilities. Try asking questions about Japanese grammar, 
+    Start by exploring Ollama's Bengali(IN) language capabilities. Try asking questions about Bengali grammar, 
     vocabulary, or cultural aspects.
     """)
-
-    # Initialize chat history if not exists
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
 
     # Display chat messages
     for message in st.session_state.messages:
@@ -118,7 +140,7 @@ def render_chat_stage():
             st.markdown(message["content"])
 
     # Chat input area
-    if prompt := st.chat_input("Ask about Japanese language..."):
+    if prompt := st.chat_input("Ask about Bengali(IN) language..."):
         # Process the user input
         process_message(prompt)
 
@@ -126,11 +148,11 @@ def render_chat_stage():
     with st.sidebar:
         st.markdown("### Try These Examples")
         example_questions = [
-            "How do I say 'Where is the train station?' in Japanese?",
-            "Explain the difference between は and が",
-            "What's the polite form of 食べる?",
-            "How do I count objects in Japanese?",
-            "What's the difference between こんにちは and こんばんは?",
+            "How do I say 'Where is the train station?' in Bengali?",
+            "Explain the difference between প্রতিশব্দ and জব্দ",
+            "What's the polite form of স্বাগত?",
+            "How do I count objects in Bengali?",
+            "What's the difference between প্রশ্ন and উত্তর ?",
             "How do I ask for directions politely?"
         ]
         
@@ -155,27 +177,21 @@ def process_message(message: str):
 
     # Generate and display assistant's response
     with st.chat_message("assistant", avatar="🤖"):
-        response = st.session_state.bedrock_chat.generate_response(message)
+        response = st.session_state.ollama_chat.generate_response(message)
         if response:
             st.markdown(response)
             st.session_state.messages.append({"role": "assistant", "content": response})
 
-
-
 def count_characters(text):
-    """Count Japanese and total characters in text"""
+    """Count Bengali and total characters in text"""
     if not text:
         return 0, 0
         
-    def is_japanese(char):
-        return any([
-            '\u4e00' <= char <= '\u9fff',  # Kanji
-            '\u3040' <= char <= '\u309f',  # Hiragana
-            '\u30a0' <= char <= '\u30ff',  # Katakana
-        ])
+    def is_Bengali(char):
+        return '\u0980' <= char <= '\u09FF'  # Bengali
     
-    jp_chars = sum(1 for char in text if is_japanese(char))
-    return jp_chars, len(text)
+    bn_chars = sum(1 for char in text if is_Bengali(char))
+    return bn_chars, len(text)
 
 def render_transcript_stage():
     """Render the raw transcript stage"""
@@ -184,24 +200,13 @@ def render_transcript_stage():
     # URL input
     url = st.text_input(
         "YouTube URL",
-        placeholder="Enter a Japanese lesson YouTube URL"
+        placeholder="Enter a Bengali lesson YouTube URL"
     )
     
     # Download button and processing
     if url:
         if st.button("Download Transcript"):
-            try:
-                downloader = YouTubeTranscriptDownloader()
-                transcript = downloader.get_transcript(url)
-                if transcript:
-                    # Store the raw transcript text in session state
-                    transcript_text = "\n".join([entry['text'] for entry in transcript])
-                    st.session_state.transcript = transcript_text
-                    st.success("Transcript downloaded successfully!")
-                else:
-                    st.error("No transcript found for this video.")
-            except Exception as e:
-                st.error(f"Error downloading transcript: {str(e)}")
+            st.error("YouTube transcript download functionality not implemented yet")
 
     col1, col2 = st.columns(2)
     
@@ -222,12 +227,12 @@ def render_transcript_stage():
         st.subheader("Transcript Stats")
         if st.session_state.transcript:
             # Calculate stats
-            jp_chars, total_chars = count_characters(st.session_state.transcript)
+            bn_chars, total_chars = count_characters(st.session_state.transcript)
             total_lines = len(st.session_state.transcript.split('\n'))
             
             # Display stats
             st.metric("Total Characters", total_chars)
-            st.metric("Japanese Characters", jp_chars)
+            st.metric("Bengali Characters", bn_chars)
             st.metric("Total Lines", total_lines)
         else:
             st.info("Load a transcript to see statistics")
@@ -240,12 +245,10 @@ def render_structured_stage():
     
     with col1:
         st.subheader("Dialogue Extraction")
-        # Placeholder for dialogue processing
         st.info("Dialogue extraction will be implemented here")
         
     with col2:
         st.subheader("Data Structure")
-        # Placeholder for structured data view
         st.info("Structured data view will be implemented here")
 
 def render_rag_stage():
@@ -255,19 +258,17 @@ def render_rag_stage():
     # Query input
     query = st.text_input(
         "Test Query",
-        placeholder="Enter a question about Japanese..."
+        placeholder="Enter a question about Bengali..."
     )
     
     col1, col2 = st.columns(2)
     
     with col1:
         st.subheader("Retrieved Context")
-        # Placeholder for retrieved contexts
         st.info("Retrieved contexts will appear here")
         
     with col2:
         st.subheader("Generated Response")
-        # Placeholder for LLM response
         st.info("Generated response will appear here")
 
 def render_interactive_stage():
@@ -284,7 +285,6 @@ def render_interactive_stage():
     
     with col1:
         st.subheader("Practice Scenario")
-        # Placeholder for scenario
         st.info("Practice scenario will appear here")
         
         # Placeholder for multiple choice
@@ -293,11 +293,9 @@ def render_interactive_stage():
         
     with col2:
         st.subheader("Audio")
-        # Placeholder for audio player
         st.info("Audio will appear here")
         
         st.subheader("Feedback")
-        # Placeholder for feedback
         st.info("Feedback will appear here")
 
 def main():
@@ -305,7 +303,7 @@ def main():
     selected_stage = render_sidebar()
     
     # Render appropriate stage
-    if selected_stage == "1. Chat with Nova":
+    if selected_stage == "1. Chat with Ollama":
         render_chat_stage()
     elif selected_stage == "2. Raw Transcript":
         render_transcript_stage()
